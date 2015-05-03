@@ -10,68 +10,75 @@ import os
 #python3.4 gitupcheck.py --check ../githublist
 #python3.4 gitupcheck.py --path ../forked/celery --remotepath fun --store ../githublist
 
-def getFromFile(path):
-	''' Get infrormation about local and remote repos
+class GitUpCheck:
+	def __init__(self, store=None):
+		self.store = store
+
+	def _getFromFile(self, path):
+		''' Get infrormation about local and remote repos
 		TODO. Append getting this info from redis
-	'''
-	f = open(path, 'r')
-	for line in f.readlines():
-		clearline = line.split('\n')[0].split(' ')
-		remotepath = clearline[0]
-		path = clearline[1]
-		yield remotepath, path
-	f.close()
+		'''
+		f = open(path, 'r')
+		for line in f.readlines():
+			clearline = line.split('\n')[0].split(' ')
+			remotepath = clearline[0]
+			path = clearline[1]
+			yield remotepath, path
+		f.close()
 
-def appendToFile(path, data):
-	''' Write new item to store '''
-	f = open(path, 'a')
-	f.write('\n')
-	f.write(data)
-	f.close()
+	def _appendToFile(self, path, data):
+		''' Write new item to store '''
+		f = open(path, 'a')
+		f.write('\n')
+		f.write(data)
+		f.close()
 
-def get_changes(path, gitclient=None):
-	''' Get and print changes from repository
-		TODO. Remove Git client and get it with naive clear
-	'''
-	check = Git(path)
-	if gitclient != None:
-		check = gitclient
-	print(check.execute(["git", "checkout", "master"]))
-	print(check.execute(["git", "merge", "upstream/master"]), '\n')
-
-def addItem(store, path, remotepath):
-	'''	Add and check new item
+	def addItem(self, path, remotepath, store=None):
+		'''	Add and check new item
 		store - path to file with information about local and remore repos
 		path - local path to forked repository for example: ~/gitupcheck
 		remotepath - path to remote repository for example: https://github.com/saromanov/gitupcheck
-	'''
-	if not os.path.exists(path):
-		msg = "{0} not found".format(path)
-		log.debug(msg)
-		raise Exception(msg)
-	check = Git(path)
-	check.execute(["git", "remote", "add", "upstream", remotepath])
-	check.execute(["git", "fetch", "upstream"])
-	appendToFile(store, remotepath+ ' ' + path)
-	print("Item was append: ")
-	get_changes(path, remotepath, gitclient=check)
+		'''
+		if not os.path.exists(path):
+			msg = "{0} not found".format(path)
+			logging.debug(msg)
+			raise Exception(msg)
+		check = Git(path)
+		check.execute(["git", "remote", "add", "upstream", remotepath])
+		check.execute(["git", "fetch", "upstream"])
+		self._appendToFile(store, remotepath+ ' ' + path)
+		print("Item was append: ")
+		self._get_changes(path, gitclient=check)
 
-def run(store):
-	''' Start checking changes on repos
-	'''
-	repos = getFromFile(store)
-	for remotepath, path in repos: 
-		print("Getting changes from {0} to {1}".format(remotepath, path))
-		get_changes(path)
+
+	def _get_changes(self, path, gitclient=None):
+		''' Get and print changes from repository
+		TODO. Remove Git client and get it with naive clear
+		'''
+		check = Git(path)
+		if gitclient != None:
+			check = gitclient
+		print(check.execute(["git", "checkout", "master"]))
+		print(check.execute(["git", "merge", "upstream/master"]), '\n')
+
+	def run(self):
+		''' Start checking changes on repos
+		'''
+		repos = self._getFromFile(self.store)
+		for remotepath, path in repos: 
+			print("Getting changes from {0} to {1}".format(remotepath, path))
+			self._get_changes(path)
 
 
 def main(results):
 	path = results.path
 	remotepath = results.remotepath
+	checker = GitUpCheck()
 	if path != None and remotepath != None and results.store != None:
-		addItem(results.store, path, remotepath)
+		checker.addItem(path, remotepath, store=results.store)
 	if results.check != None:
-		run(results.check)
+		checker.store = results.check
+		checker.run()
 	else:
 		logging.error("Error in parsing arguments")
 
