@@ -72,6 +72,15 @@ class GitUpCheck:
         host, port = self._prepareAddress()
         return redis.Redis(host=host, port=port).lrange('gitupcheck', 0, -1)
 
+    def _fetchUpstream(self, gitclient, remotepath):
+        gitclient.execute(["git", "remote", "add", "upstream", remotepath])
+        gitclient.execute(["git", "fetch", "upstream"])
+
+    def _merge(self, gitclient):
+        status, stdout, stderr = gitclient.execute(["git", "merge", "upstream/master"],
+                            with_extended_output=True, stdout_as_string=True)
+        print(stdout + '\n')
+
     def addItem(self, path, remotepath, store=None, addr=None):
         '''	Add and check new item
         store - path to file with information about local and remore repos
@@ -83,8 +92,7 @@ class GitUpCheck:
             logging.debug(msg)
             raise Exception(msg)
         check = Git(path)
-        print(check.execute(["git", "remote", "add", "upstream", remotepath]))
-        check.execute(["git", "fetch", "upstream"])
+        self._fetchUpstream(check, remotepath)
         if store == '@redis':
             self.addr = addr
             self._appendToRedis(remotepath + ':' + path)
@@ -93,15 +101,19 @@ class GitUpCheck:
         print("Item was append: ")
         self._get_changes(path, gitclient=check)
 
-    def _get_changes(self, path, gitclient=None):
+    def _get_changes(self, path, remotepath, gitclient=None):
         ''' Get and print changes from repository
         TODO. Remove Git client and get it with naive clear
         '''
         check = Git(path)
         if gitclient != None:
             check = gitclient
-        print(check.execute(["git", "checkout", "master"]))
-        print(check.execute(["git", "merge", "upstream/master"]), '\n')
+        check.execute(["git", "checkout", "master"])
+        try:
+            self._merge(check)
+        except:
+            self._fetchUpstream(check, remotepath)
+            self._merge(check)
 
     def run(self):
         ''' Start checking changes on repos
@@ -111,7 +123,7 @@ class GitUpCheck:
         logging.debug(repos)
         for remotepath, path in repos:
             print("Getting changes from {0} to {1}".format(remotepath, path))
-            self._get_changes(path)
+            self._get_changes(path, remotepath)
 
 
 def main(results):
