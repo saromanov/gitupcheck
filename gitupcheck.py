@@ -40,7 +40,7 @@ class GitUpCheck:
             result = list(
                 map(lambda x: str(x).split(':'), self._getFromRedis()))
             return [(value[0][1:], value[1][:-1]) for value in result]
-        return self._getFromFile(store)
+        return self._removeDuplicates(self._getFromFile(store))
 
     def _appendToFile(self, path, data):
         ''' Write new item to store '''
@@ -56,6 +56,9 @@ class GitUpCheck:
         host = value[0]
         port = value[1]
         return host, port
+
+    def _removeDuplicates(self, data):
+        return list(set(data))
 
     def _appendToRedis(self, data):
         import redis
