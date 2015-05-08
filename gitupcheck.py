@@ -77,9 +77,16 @@ class GitUpCheck:
         gitclient.execute(["git", "fetch", "upstream"])
 
     def _merge(self, gitclient):
-        status, stdout, stderr = gitclient.execute(["git", "merge", "upstream/master"],
+        status, stdout, stderr = gitclient.execute(["git", "pull"],
                                                    with_extended_output=True, stdout_as_string=True)
         print(stdout + '\n')
+        return stdout
+
+    def _summary(self, data):
+        """ Show summary after checking of repos """
+        print("\nYou have a {0} changed repositories".format(len(data)))
+        for repo in data:
+            print(repo + '\n')
 
     def addItem(self, path, remotepath, store=None, addr=None):
         '''	Add and check new item
@@ -110,20 +117,24 @@ class GitUpCheck:
             check = gitclient
         check.execute(["git", "checkout", "master"])
         try:
-            self._merge(check)
+            return self._merge(check)
         except:
             self._fetchUpstream(check, remotepath)
-            self._merge(check)
+            return self._merge(check)
 
     def run(self):
         ''' Start checking changes on repos
         '''
+        result = []
         repos = self._getData(self.store)
         logging.debug("Getting data from store: ")
         logging.debug(repos)
         for remotepath, path in repos:
             print("Getting changes from {0} to {1}".format(remotepath, path))
-            self._get_changes(path, remotepath)
+            check = self._get_changes(path, remotepath)
+            if check != 'Already up-to-date.':
+                result.append(path)
+        self._summary(result)
 
 
 def main(results):
