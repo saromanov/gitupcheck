@@ -78,7 +78,7 @@ class GitUpCheck:
 
     def _merge(self, gitclient):
         status, stdout, stderr = gitclient.execute(["git", "merge", "upstream/master"],
-                            with_extended_output=True, stdout_as_string=True)
+                                                   with_extended_output=True, stdout_as_string=True)
         print(stdout + '\n')
 
     def addItem(self, path, remotepath, store=None, addr=None):
@@ -130,9 +130,11 @@ def main(results):
     path = results.path
     remotepath = results.remotepath
     checker = GitUpCheck()
+    # Add new item
     if path != None and remotepath != None and results.store != None:
         checker.addItem(
-            path, remotepath, store=results.store, addr=results.store)
+            path, remotepath, store=results.store, addr=results.addr)
+    # Check repos
     if results.check != None:
         checker.store = results.check
         if results.addr != None:
@@ -147,7 +149,7 @@ def parsing(parse):
     parse.add_argument("--remotepath", help="Remote path to repository")
     parse.add_argument("--store", help="Path to store with data")
     parse.add_argument(
-        "--addr", help="Append address host:port to remote store")
+        "--addr", help="Append address host:port to remote store", default='localhost:6379')
     parse.add_argument(
         "--check", help="Check current list. Argument path to list")
     main(parse.parse_args())
